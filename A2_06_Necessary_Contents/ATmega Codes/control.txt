@@ -1,0 +1,77 @@
+#include <avr/io.h>
+#define F_CPU 16000000UL
+#include <util/delay.h>
+
+// Assembler: AHLOGBFNMJDPECKI
+
+#define add 0x00
+#define addi 0x05
+#define sub 0x0D
+#define subi 0x0A
+#define and 0x0C
+#define andi 0x06
+#define or 0x04
+#define ori 0x01
+#define sll 0x0F
+#define srl 0x09
+#define nor 0x0E
+#define lw 0x08
+#define sw 0x02
+#define beq 0x07
+#define bneq 0x03
+#define j 0x0B
+
+// defining our operations for producing ALUOP and selectors for each and every mux . ALUOP is not needed actually . This part is done in our circuit
+
+unsigned char memArr[32];
+
+// srl-> d04,sw->110,andi->704,addi->104, subi->304,lw->12c,sll->b04,or->406,ori->504,j->001, bneq->280, and->606, beq->240, add->006 sub->206 nor->806
+
+int controlMem[16] = {0x006, 0x504, 0x110, 0x280, 0x406, 0x104, 0x704, 0x240, 0x12c, 0xd04, 0x304, 0x001, 0x606, 0x206, 0x806, 0xb04};
+
+int main(void)
+{
+	// To use PC2,3,4,5 pins for general I/O operations, JTAG must be disabled.(Enable JTD twice)
+	MCUCSR |= (1 << JTD);
+	MCUCSR |= (1 << JTD);
+
+	DDRA = 0xFF;
+	DDRB = 0X00;
+	DDRD = 0X00;
+	DDRC = 0XFF;
+
+	// DDRA=0X00; // ShowAddr A0 to A4; A5-> showaddrflag
+
+	// opc BL
+	// mRrWrDj AL
+	// bNbEm2RmW AH
+	// aluOPaluSRC CL
+
+	PORTA = 0b11111111; // assign it as output
+	PORTB = 0b00000000; // will take input for register1 and shift operation
+	PORTD = 0b00000000; // takes input for register 2
+	PORTC = 0b00001111; // shows output in the LSB part
+
+	while (1)
+	{
+		unsigned int operation = PINB & 0b00001111;
+		// taking input such as ADD OR , based on 4 bits
+		// actually 0-15
+
+		int ctrlOUT1 = controlMem[operation] % 256;
+		// now we have the value for each mux and aluop in int form
+
+		PORTA = ctrlOUT1 & 0b11111111;
+		// getting complete last 8 bit address in portA
+
+		ctrlOUT1 = controlMem[operation] / 256;
+
+		PORTC = (ctrlOUT1 & 0b00001111) | ((operation << 4) & 0b11110000);
+		// this will have the remaining 4 bits
+
+		// combining PORTA and PORTC = mux selectors + ALUOP
+
+		_delay_ms(10);
+	}
+}
+// Control
